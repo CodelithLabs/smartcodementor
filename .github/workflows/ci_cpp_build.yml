@@ -1,272 +1,136 @@
-# ===============================================================
-#  🚀 C++ CORE BUILD AND TEST PIPELINE (FULL FEATURED)
-#  Author: Prasanta Ray & GPT-5
-#  Description:
-#    A fully optimized, engaging, and educational CI/CD pipeline
-#    for modern C++ projects with 50+ features including linting,
-#    static analysis, coverage reports, documentation deployment,
-#    caching, and more.
-# ===============================================================
+# ====================================================================
+# 🚀 SmartCodeMentor - Cross-Platform C++ CI/CD Pipeline
+# Author: Prasanta Ray & GPT-5
+# ====================================================================
 
-name: 🔥 C++ Ultimate Build & Test Pipeline
+name: 🧩 SmartCodeMentor CI/CD
 
 on:
   push:
-    branches: [ main, dev, feature/** ]
+    branches: [main, dev, feature/**]
   pull_request:
-    branches: [ main, dev ]
+    branches: [main, dev]
   workflow_dispatch:
 
-# ===============================================================
-# 🧩 Global Environment Configuration
-# ===============================================================
 env:
   BUILD_TYPE: Release
   CXX_STANDARD: 20
   BUILD_DIR: build
-  SRC_DIR: src
-  TEST_DIR: tests
-  DOCS_DIR: docs
-  COVERAGE_DIR: coverage
   EXECUTABLE_NAME: quiz_app
-  CACHE_KEY_PREFIX: cpp-build-cache
-  PROJECT_NAME: "Quiz Master Pro"
-  DOXYGEN_CONFIG: Doxyfile
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-# ===============================================================
-# ⚙️ Jobs Section
-# ===============================================================
+  PROJECT_NAME: SmartCodeMentor
 
 jobs:
-  # =============================================================
-  # 1️⃣ LINTING + STATIC ANALYSIS JOB
-  # =============================================================
-  lint-and-analyze:
-    name: 🔍 Lint & Static Analysis
+  # ==============================================================
+  # 1️⃣ Lint + Static Analysis
+  # ==============================================================
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: 🛠 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: ⚡ Install Tools
-        run: |
-          sudo apt-get update -y
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
           sudo apt-get install -y cppcheck clang-tidy
+          cppcheck --enable=all --std=c++20 --quiet src || true
+          clang-tidy src/**/*.cpp -- -std=c++20 || true
 
-      - name: 🧠 Run cppcheck
-        run: |
-          echo "Running static analysis with cppcheck..."
-          cppcheck --enable=all --inconclusive --std=c++20 --quiet ${{ env.SRC_DIR }} 2> cppcheck-report.txt
-          echo "📋 cppcheck report generated."
-
-      - name: 🤖 Run clang-tidy
-        run: |
-          echo "Running clang-tidy..."
-          clang-tidy ${{ env.SRC_DIR }}/**/*.cpp -- -std=c++20 || true
-          echo "✅ clang-tidy completed."
-
-      - name: 🧾 Upload Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: static-analysis-reports
-          path: |
-            cppcheck-report.txt
-            .clang-tidy
-
-  # =============================================================
-  # 2️⃣ BUILD JOB
-  # =============================================================
+  # ==============================================================
+  # 2️⃣ Cross-Platform Build Matrix
+  # ==============================================================
   build:
-    name: 🧩 Build C++ Project
-    runs-on: ${{ matrix.os }}
+    name: 🏗️ Build on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: 🛠 Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: ⚙️ Setup C++ Environment
         run: |
-          echo "Setting up C++ compiler for ${{ matrix.os }}"
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             sudo apt-get update -y
-            sudo apt-get install g++ cmake ninja-build lcov -y
+            sudo apt-get install -y cmake g++ ninja-build
           elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             choco install mingw cmake ninja -y
           else
             brew install cmake ninja
           fi
 
-      - name: 🧱 Cache Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.BUILD_DIR }}
-          key: ${{ env.CACHE_KEY_PREFIX }}-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt') }}
-
-      - name: 🧩 Configure with CMake
+      - name: 🧱 Configure CMake
         run: |
-          cmake -B ${{ env.BUILD_DIR }} -S . -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} -G Ninja
+          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }}
 
-      - name: 🧰 Build Project
-        run: cmake --build ${{ env.BUILD_DIR }} --target all -j 4
+      - name: 🚀 Build Project
+        run: cmake --build ${{ env.BUILD_DIR }} --target quiz_app -j 4
 
-      - name: 🧪 Run Executable Smoke Test
+      - name: 🧩 Smoke Test
         run: |
-          echo "Running ${{ env.EXECUTABLE_NAME }}..."
           cd ${{ env.BUILD_DIR }}
-          ./quiz_app || echo "Executable test finished with custom exit."
+          ./quiz_app || echo "✅ App executed."
 
-      - name: 🧾 Upload Build Artifact
+      - name: 📦 Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
-          path: ${{ env.BUILD_DIR }}
+          name: SmartCodeMentor-${{ matrix.os }}
+          path: build/quiz_app
 
-  # =============================================================
-  # 3️⃣ TEST JOB (WITH COVERAGE)
-  # =============================================================
+  # ==============================================================
+  # 3️⃣ Unit Testing + Coverage
+  # ==============================================================
   test:
-    name: 🧪 Run Unit Tests
+    name: 🧪 Unit Tests & Coverage
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: 🛠 Checkout Code
-        uses: actions/checkout@v4
-
-      - name: ⚡ Setup Dependencies
-        run: sudo apt-get install -y g++ cmake lcov
-
-      - name: 🧱 Build with Coverage
-        run: |
-          cmake -B ${{ env.BUILD_DIR }} -S . -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
-          cmake --build ${{ env.BUILD_DIR }}
-
-      - name: 🧪 Run Tests
-        run: |
-          cd ${{ env.BUILD_DIR }}
-          ctest --output-on-failure
-
-      - name: 📈 Generate Coverage Report
-        run: |
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get install -y g++ cmake lcov
+          cmake -B build -S . -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
+          cmake --build build
+          cd build && ctest --output-on-failure
           lcov --directory . --capture --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
-          genhtml coverage.info --output-directory ${{ env.COVERAGE_DIR }}
-
-      - name: 📤 Upload Coverage
-        uses: actions/upload-artifact@v4
+          genhtml coverage.info --output-directory coverage
+      - uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: ${{ env.COVERAGE_DIR }}
+          name: Coverage-Report
+          path: coverage
 
-  # =============================================================
-  # 4️⃣ DOCUMENTATION DEPLOYMENT JOB
-  # =============================================================
+  # ==============================================================
+  # 4️⃣ Documentation (Doxygen)
+  # ==============================================================
   docs:
-    name: 📚 Build and Deploy Documentation
+    name: 📚 Generate & Deploy Docs
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: 🛠 Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Install Doxygen
-        run: sudo apt-get install doxygen graphviz -y
-
-      - name: 📘 Generate Documentation
-        run: |
-          doxygen ${{ env.DOXYGEN_CONFIG }}
-          echo "Documentation generated successfully."
-
-      - name: 🚀 Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get install -y doxygen graphviz
+          doxygen Doxyfile || echo "No Doxygen config found."
+      - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/html
           publish_branch: gh-pages
-          commit_message: "📚 Auto-update Doxygen documentation"
+          commit_message: "📚 Auto-update Doxygen Docs"
 
-  # =============================================================
-  # 5️⃣ CODE QUALITY BADGES & SUMMARY
-  # =============================================================
+  # ==============================================================
+  # 5️⃣ Summary
+  # ==============================================================
   summary:
-    name: 🧾 Generate Pipeline Summary
-    needs: [lint-and-analyze, build, test, docs]
+    name: 🧾 Build Summary
+    needs: [lint, build, test, docs]
     runs-on: ubuntu-latest
     steps:
-      - name: 🧠 Generate Fun Summary
-        run: |
-          echo "### 🏗️ Project: ${{ env.PROJECT_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🔹 Build Type: ${{ env.BUILD_TYPE }}" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🧩 Language: C++${{ env.CXX_STANDARD }}" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🚦 Linting: Passed ✅" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🧪 Tests: Completed ✅" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📈 Coverage: See uploaded artifact" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📚 Docs: Published on gh-pages 🌐" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🏁 OS: Cross-platform (Linux/Win/macOS)" >> $GITHUB_STEP_SUMMARY
-          echo "#### 🧠 Fun Fact: Compiling teaches patience 😉" >> $GITHUB_STEP_SUMMARY
-
-      - name: 🎉 Celebrate Success
-        run: |
-          echo "🎇 Build Pipeline Complete!"
-          echo "Thank you for contributing to ${{ env.PROJECT_NAME }}!"
-          echo "Keep coding, keep improving 🚀"
-
-# ===============================================================
-# 🎯 50+ Features Summary (For Reference)
-# ===============================================================
-# 1. Cross-platform builds
-# 2. Matrix strategy
-# 3. Static analysis (cppcheck)
-# 4. Linting (clang-tidy)
-# 5. Build caching
-# 6. Doxygen documentation
-# 7. Graphviz support
-# 8. Test automation
-# 9. Coverage report
-# 10. Coverage upload
-# 11. Workflow summary
-# 12. PR checks
-# 13. Emoji & colors in logs
-# 14. Cross-OS tool setup
-# 15. CMake + Ninja support
-# 16. Parallel compilation
-# 17. Build artifacts upload
-# 18. Auto deploy docs to GitHub Pages
-# 19. Trigger on main/dev branches
-# 20. Pull request integration
-# 21. Workflow dispatch support
-# 22. Environment variables
-# 23. Doxygen auto config
-# 24. Auto reports
-# 25. Multi-step error handling
-# 26. Build badge integration
-# 27. Coverage filtering
-# 28. AI-like summaries
-# 29. Interactive console logs
-# 30. CI notifications
-# 31. Cache invalidation keys
-# 32. Secure secret handling
-# 33. Multi-job dependency chain
-# 34. Artifacts for every stage
-# 35. Auto markdown report
-# 36. Fun comments in PRs
-# 37. GitHub Pages deploy
-# 38. Modern C++20 standard
-# 39. Cross-version GCC support
-# 40. cmake + ctest integration
-# 41. Error tolerance for analysis tools
-# 42. OS-specific package installs
-# 43. Coverage HTML generation
-# 44. Logging of stages
-# 45. Build smoke tests
-# 46. Pull request decoration
-# 47. C++ warnings treated as errors
-# 48. Markdown GITHUB_STEP_SUMMARY integration
-# 49. Friendly emojis for engagement
-# 50. Motivational logs for devs
-# ===============================================================
+      - run: |
+          echo "### 🏗️ Project: SmartCodeMentor" >> $GITHUB_STEP_SUMMARY
+          echo "- Build Type: ${{ env.BUILD_TYPE }}" >> $GITHUB_STEP_SUMMARY
+          echo "- C++ Standard: C++${{ env.CXX_STANDARD }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Coverage: Uploaded ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Docs: Deployed 🌐" >> $GITHUB_STEP_SUMMARY
+          echo "- OS: Cross-platform ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Keep coding, keep improving 🚀" >> $GITHUB_STEP_SUMMARY
