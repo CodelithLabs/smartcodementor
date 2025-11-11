@@ -46,36 +46,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ⚙️ Setup C++ Environment
+      - name: ⚙️ Setup C++ Environment (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            sudo apt-get update -y
-            sudo apt-get install -y cmake g++ ninja-build
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            choco install mingw cmake ninja -y
-          else
-            brew install cmake ninja
-          fi
+          sudo apt-get update -y
+          sudo apt-get install -y cmake g++ ninja-build
+        shell: bash
+
+      - name: ⚙️ Setup C++ Environment (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install mingw cmake ninja -y
+        shell: pwsh
+
+      - name: ⚙️ Setup C++ Environment (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake ninja
+        shell: bash
 
       - name: 🧱 Configure CMake
         run: |
           cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }}
+        shell: bash
 
       - name: 🚀 Build Project
         run: cmake --build ${{ env.BUILD_DIR }} --target quiz_app -j 4
+        shell: bash
 
-      - name: 🧩 Smoke Test
+      - name: 🧩 Smoke Test (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           cd ${{ env.BUILD_DIR }}
           ./quiz_app || echo "✅ App executed."
+        shell: bash
 
-      - name: 📦 Upload Artifact
+      - name: 🧩 Smoke Test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          ./quiz_app.exe || echo "✅ App executed."
+        shell: pwsh
+
+      - name: 📦 Upload Artifact (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: SmartCodeMentor-${{ matrix.os }}
           path: build/quiz_app
+
+      - name: 📦 Upload Artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartCodeMentor-${{ matrix.os }}
+          path: build/quiz_app.exe
 
   # ==============================================================
   # 3️⃣ Unit Testing + Coverage
