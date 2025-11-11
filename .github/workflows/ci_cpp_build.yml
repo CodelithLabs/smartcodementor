@@ -73,12 +73,10 @@ jobs:
           brew install cmake ninja
       
       # 🧱 Configure & Build (cross-platform)
-      - name: ⚙️ Configure Project with CMake
+- name: ⚙️ Configure Project with CMake
         run: |
-          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} \
-            -DENABLE_TESTS=ON # <-- MODIFIED: Enable tests for all platforms
+          # <-- MODIFIED: Put CMake command on a single line for cross-platform compatibility
+          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} -DENABLE_TESTS=ON
       
       - name: 🚀 Build Project
         # <-- MODIFIED: Removed '--target quiz_app' to build all targets (inc. tests)
