@@ -74,7 +74,7 @@ public:
 
     // This was line 82
     // FIX: Changed 'questionIndex' from 'int' to 'size_t' to match std::vector index.
-    void recordAnswer(size_t questionIndex, int answer, bool isCorrect) {
+    void recordAnswer(size_t questionIndex, int [[maybe_unused]], bool isCorrect) {
         if (isCorrect) {
             score++;
         }
