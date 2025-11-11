@@ -61,6 +61,7 @@ private:
     std::string quizTitle;
     int score;
     std::vector<bool> correctness; // Vector to track correct answers
+    std::vector<int> userAnswers;  // <-- ADDED: To store the user's answer
 
 public:
     // This was line 74
@@ -68,20 +69,31 @@ public:
     // 'size_t' is the correct type for sizes and counts in C++.
     QuizAttempt(const std::string& id, const std::string& qTitle, size_t totalQuestions)
         : studentId(id), quizTitle(qTitle), score(0) {
-        // This line is now safe, no sign conversion.
+        
+        // Resize both vectors
         correctness.resize(totalQuestions, false);
+        userAnswers.resize(totalQuestions, -1); // -1 means "not answered"
     }
 
-    // This was line 82
-    // FIX: Changed 'questionIndex' from 'int' to 'size_t' to match std::vector index.
-    void recordAnswer(size_t questionIndex, int [[maybe_unused]], bool isCorrect) {
+    // <--- THIS IS THE FINAL FIX --- >
+    // The signature is changed. We now pass the Question and the answer.
+    // The 'answer' parameter is now USED to check for correctness, which
+    // fixes the -Wunused-parameter error. The 'isCorrect' parameter is removed
+    // as this function now calculates it.
+    void recordAnswer(const Question& question, size_t questionIndex, int answer) {
+        // 1. Store the user's answer
+        userAnswers[questionIndex] = answer;
+
+        // 2. Calculate if it's correct (this is where 'answer' is used)
+        bool isCorrect = question.isCorrect(answer);
+
+        // 3. Update score and correctness
         if (isCorrect) {
             score++;
         }
 
         // Add bounds check for safety
         if (questionIndex < correctness.size()) {
-            // This line is now safe, no sign conversion.
             correctness[questionIndex] = isCorrect;
         } else {
             // Handle error, e.g., log it or throw
@@ -117,11 +129,11 @@ int main() {
     for (size_t i = 0; i < questions.size(); ++i) {
         // Simulate a user answering. Let's just say they get it right.
         int dummyAnswer = 0; // User picks first option
-        bool correct = questions[i].isCorrect(dummyAnswer);
         
-        // FIX: 'i' is size_t, which now correctly matches recordAnswer's
-        // new signature (which also expects size_t).
-        attempt.recordAnswer(i, dummyAnswer, correct);
+        // <--- THIS IS THE OTHER PART OF THE FIX --->
+        // Call the new, cleaner function. We pass the question and the answer.
+        // The 'isCorrect' logic is no longer in main(), it's inside recordAnswer().
+        attempt.recordAnswer(questions[i], i, dummyAnswer);
     }
 
     // 4. Print the score
