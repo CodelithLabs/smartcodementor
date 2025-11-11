@@ -90,11 +90,11 @@ if(ENABLE_TESTS)
     enable_testing()
 
     include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        release-1.13.0
-    )
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.13.0  # <-- DELETE and re-type the space on this line
+    )
     FetchContent_MakeAvailable(googletest)
 
     file(GLOB_RECURSE TEST_SOURCES "${TEST_DIR}/*.cpp")
