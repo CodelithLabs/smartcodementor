@@ -86,16 +86,16 @@ endif()
 # 🧪 Unit Tests (GoogleTest)
 # ------------------------------------------------------------------------
 if(ENABLE_TESTS)
-    include(CTest)
-    enable_testing()
+    include(CTest)
+    enable_testing()
 
-    include(FetchContent)
-FetchContent_Declare(
+    include(FetchContent)
+    FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.13.0  # <-- DELETE and re-type the space on this line
+        GIT_TAG release-1.13.0
     )
-    FetchContent_MakeAvailable(googletest)
+    FetchContent_MakeAvailable(googletest)
 
     file(GLOB_RECURSE TEST_SOURCES "${TEST_DIR}/*.cpp")
     add_executable(run_tests ${TEST_SOURCES})
