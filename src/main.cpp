@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include "QuizLogic.h"
 
 // --- Question Class ---
 class Question {
