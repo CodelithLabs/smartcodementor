@@ -1,0 +1,114 @@
+/* General Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1a1b26;
+    color: #a9b1d6;
+    margin: 0;
+    line-height: 1.6;
+}
+
+header {
+    background-color: #1f202e;
+    padding: 1rem;
+    text-align: center;
+    border-bottom: 1px solid #3b4261;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #c0caf5;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    padding: 1rem;
+    gap: 1rem;
+    height: calc(100vh - 80px); /* Full height minus header */
+}
+
+/* Panels */
+.editor-panel, .output-panel {
+    background-color: #24283b;
+    border-radius: 8px;
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+h2 {
+    margin-top: 0;
+    color: #7aa2f7;
+    border-bottom: 1px solid #3b4261;
+    padding-bottom: 0.5rem;
+}
+
+/* Code Editor */
+#code-editor {
+    flex-grow: 1;
+    width: 100%;
+    background-color: #1e1e2e;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 1rem;
+    resize: none;
+    box-sizing: border-box;
+}
+
+#code-editor:focus {
+    outline: 2px solid #7aa2f7;
+}
+
+/* Output Area */
+#output-area {
+    flex-grow: 1;
+    background-color: #1e1e2e;
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-y: auto;
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+button {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#run-btn {
+    background-color: #7aa2f7;
+    color: #1a1b26;
+}
+
+#run-btn:hover {
+    background-color: #9ece6a;
+}
+
+#hint-btn {
+    background-color: #3b4261;
+    color: #c0caf5;
+}
+
+#hint-btn:hover {
+    background-color: #4f587e;
+}
