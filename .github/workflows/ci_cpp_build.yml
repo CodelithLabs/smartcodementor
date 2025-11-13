@@ -122,8 +122,8 @@ jobs:
       - name: 📊 Generate Coverage Report
         working-directory: build
         run: |
-          # FIX: Added '--rc geninfo_ignore_errors=mismatch' to ignore lcov parsing bugs
-          lcov --directory . --capture --output-file coverage.info --rc geninfo_ignore_errors=mismatch
+          # 2ND FIX: Using the --ignore-errors flag as suggested by the error log
+          lcov --directory . --capture --output-file coverage.info --ignore-errors mismatch
           genhtml coverage.info --output-directory coverage
           
       - name: 💾 Upload Coverage Artifact
@@ -218,7 +218,8 @@ jobs:
   report_failure:
     name: 🚨 Report Failure
     if: failure() && github.event_name == 'push' # Only create issues on push, not PRs
-    needs: [build, coverage, docs, sanitize] # Depends on all main jobs
+    # FIX: Added 'release' to the list of jobs to check
+    needs: [build, coverage, docs, sanitize, release] # Depends on all main jobs
     runs-on: ubuntu-latest
     steps:
       - name: 💬 Determine Failure and Assignee
@@ -243,6 +244,10 @@ jobs:
           elif [[ "${{ needs.sanitize.result }}" == "failure" ]]; then
             title="[Sanitizer Failure] CI Error on ${{ github.ref }}"
             body+="**Job:** `sanitize` failed.\n"
+          # FIX: Added a check for the release job
+          elif [[ "${{ needs.release.result }}" == "failure" ]]; then
+            title="[Release Failure] CI Error on ${{ github.ref }}"
+            body+="**Job:** `release` failed.\n"
           fi
           
           body+="\n[View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
