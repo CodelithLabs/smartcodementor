@@ -1,38 +1,26 @@
-#include "QuizAttempt.h"
-#include <iostream>  // For std::cerr
-#include <utility> // For std::move
+#pragma once
 
-QuizAttempt::QuizAttempt(const std::string& id, const std::string& qTitle, size_t totalQuestions)
-    : studentId(id), quizTitle(qTitle), score(0) {
+#include <string>
+#include <vector>
+#include <cstddef>     // <-- FIX: Added for size_t
+#include "Question.h"  // Include dependencies
+
+class QuizAttempt {
+private:
+    std::string studentId;
+    std::string quizTitle;
+    int score;
+    std::vector<bool> correctness;
+    std::vector<int> userAnswers;
+
+public:
+    // --- Declarations Only ---
+    // (Notice the semicolons ';' and no function bodies)
+    QuizAttempt(const std::string& id, const std::string& qTitle, size_t totalQuestions);
+
+    void recordAnswer(const Question& question, size_t questionIndex, int answer);
     
-    correctness.resize(totalQuestions, false);
-    userAnswers.resize(totalQuestions, -1); // -1 means "not answered"
-}
-
-void QuizAttempt::recordAnswer(const Question& question, size_t questionIndex, int answer) {
-    // 1. Store the user's answer
-    userAnswers[questionIndex] = answer;
-
-    // 2. Calculate if it's correct
-    bool isCorrect = question.isCorrect(answer);
-
-    // 3. Update score and correctness
-    if (isCorrect) {
-        score++;
-    }
-
-    // Add bounds check for safety
-    if (questionIndex < correctness.size()) {
-        correctness[questionIndex] = isCorrect;
-    } else {
-        std::cerr << "Error: questionIndex " << questionIndex << " out of bounds." << std::endl;
-    }
-}
-
-int QuizAttempt::getScore() const {
-    return score;
-}
-
-size_t QuizAttempt::getTotalQuestions() const {
-    return correctness.size();
-}
+    int getScore() const;
+    
+    size_t getTotalQuestions() const;
+};
