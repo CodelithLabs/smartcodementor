@@ -71,13 +71,8 @@ jobs:
       
       # 🧱 Configure & Build (cross-platform)
       - name: ⚙️ Configure Project with CMake
-        run: |
-          # Static analysis is enabled in CMakeLists.txt
-          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja `
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-            -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} `
-            -DENABLE_TESTS=ON `
-            -DENABLE_STATIC_ANALYSIS=ON
+        # FIX: Put CMake command on a single line for cross-platform compatibility
+        run: cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} -DENABLE_TESTS=ON -DENABLE_STATIC_ANALYSIS=ON
       
       - name: 🚀 Build Project
         # Builds all targets (app, lib, and tests)
@@ -114,10 +109,8 @@ jobs:
           sudo apt-get install -y g++ cmake ninja-build lcov
           
       - name: ⚙️ Configure Project (Coverage Build)
-        run: |
-          cmake -B build -S . -G Ninja `
-            -DENABLE_TESTS=ON `
-            -DENABLE_COVERAGE=ON
+        # FIX: Put CMake command on a single line
+        run: cmake -B build -S . -G Ninja -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
             
       - name: 🚀 Build Project
         run: cmake --build build
@@ -182,12 +175,8 @@ jobs:
         run: sudo apt-get update -y && sudo apt-get install -y cmake g++ ninja-build
             
       - name: ⚙️ Configure Project (Debug + Sanitizers)
-        run: |
-          # We use CMAKE_BUILD_TYPE=Debug for the best sanitizer output
-          cmake -B build -S . -G Ninja `
-            -DCMAKE_BUILD_TYPE=Debug `
-            -DENABLE_TESTS=ON `
-            -DENABLE_SANITIZERS=ON
+        # FIX: Put CMake command on a single line
+        run: cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON -DENABLE_SANITIZERS=ON
 
       - name: 🚀 Build Project
         run: cmake --build build -j 4
