@@ -1,5 +1,12 @@
 # ================================================================
-# 🚀 SmartCodeMentor CI/CD (Cross-Platform, Fixed Version)
+# 🚀 SmartCodeMentor CI/CD (Cross-Platform, v1.2)
+# ================================================================
+# This workflow is professionally structured to:
+# 1. Run a build & test matrix on Ubuntu, Windows, and macOS.
+# 2. Run code coverage and sanitizer checks on Ubuntu.
+# 3. Build Doxygen docs.
+# 4. Create a GitHub Release (when you push a tag like 'v1.0.0').
+# 5. Automatically create a GitHub Issue if any job fails on 'main' or 'dev'.
 # ================================================================
 
 name: SmartCodeMentor CI/CD
@@ -20,27 +27,12 @@ env:
 
 permissions:
   contents: write
+  issues: write # <-- ADDED: Allow creating issues
 
 # ================================================================
-# 1️⃣ Lint Job (Ubuntu Only)
+# 1️⃣ Cross-Platform Build & Test Matrix
 # ================================================================
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧩 Checkout Source
-        uses: actions/checkout@v4
-
-      - name: 🔍 Static Analysis (cppcheck + clang-tidy)
-        continue-on-error: true
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cppcheck clang-tidy
-          cppcheck --enable=all --std=c++20 --quiet src
-          clang-tidy src/**/*.cpp -- -std=c++20
-# ================================================================
-# 2️⃣ Cross-Platform Build & Test Matrix
-# ================================================================
   build:
     name: 🏗️ Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -58,37 +50,38 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y cmake g++ ninja-build lcov
-
+          sudo apt-get install -y cmake g++ ninja-build clang-tidy cppcheck
+      
       # 🪟 Windows setup
       - name: 🪟 Install dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install mingw ninja -y
+          choco install mingw ninja cppcheck -y
+          # This is the crucial fix for the Windows PATH
+          echo "C:\Program Files\Cppcheck" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo "C:\tools\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "✅ Installed MinGW/Ninja and added to PATH."
+          echo "✅ Installed MinGW/Ninja/Cppcheck and added to PATH."
       
       # 🍎 macOS setup
       - name: 🍎 Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja
+          brew install cmake ninja cppcheck
       
-      # <--- OPTIMIZATION: Cache build dependencies (like Googletest) --->
-      - name: ⚡ Cache Dependencies
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.BUILD_DIR }}/_deps
-          key: deps-${{ matrix.os }}-${{ hashFiles('**/CMakeLists.txt') }}
-
       # 🧱 Configure & Build (cross-platform)
       - name: ⚙️ Configure Project with CMake
         run: |
-          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} -DENABLE_TESTS=ON
+          # Static analysis is enabled in CMakeLists.txt
+          cmake -B ${{ env.BUILD_DIR }} -S . -G Ninja `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DCMAKE_CXX_STANDARD=${{ env.CXX_STANDARD }} `
+            -DENABLE_TESTS=ON `
+            -DENABLE_STATIC_ANALYSIS=ON
       
       - name: 🚀 Build Project
+        # Builds all targets (app, lib, and tests)
+        # Static analysis (clang-tidy/cppcheck) runs here
         run: cmake --build ${{ env.BUILD_DIR }} -j 4
 
       - name: 🧪 Run Unit Tests
@@ -100,88 +93,100 @@ jobs:
         with:
           name: SmartCodeMentor-${{ matrix.os }}
           path: |
-            ${{ env.BUILD_DIR }}/quiz_app
-            ${{ env.BUILD_DIR }}/quiz_app.exe
-          if-no-files-found: ignore # Ignore if quiz_app.exe doesn't exist on Linux/macOS, etc.
+            ${{ env.BUILD_DIR }}/${{ env.EXECUTABLE_NAME }}
+            ${{ env.BUILD_DIR }}/${{ env.EXECUTABLE_NAME }}.exe
+          retention-days: 7
 
 # ================================================================
-# 3️⃣ Code Coverage (Ubuntu only)
+# 2️⃣ Code Coverage (Ubuntu only)
 # ================================================================
   coverage:
     name: 📊 Generate Coverage
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      # <--- OPTIMIZATION: Cache build dependencies (like Googletest) --->
-      - name: ⚡ Cache Dependencies
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.BUILD_DIR }}/_deps
-          key: deps-ubuntu-coverage-${{ hashFiles('**/CMakeLists.txt') }}
+      - name: 🧩 Checkout Source
+        uses: actions/checkout@v4
 
-      - run: |
+      - name: 🛠️ Install dependencies
+        run: |
           sudo apt-get update -y
-          sudo apt-get install -y g++ cmake lcov
-          cmake -B build -S . -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
-          cmake --build build
-          cd build && ctest --output-on-failure
-          lcov --directory . --capture --output-file coverage.info
+          sudo apt-get install -y g++ cmake ninja-build lcov
+          
+      - name: ⚙️ Configure Project (Coverage Build)
+        run: |
+          cmake -B build -S . -G Ninja `
+            -DENABLE_TESTS=ON `
+            -DENABLE_COVERAGE=ON
+            
+      - name: 🚀 Build Project
+        run: cmake --build build
+        
+      - name: 🧪 Run Tests to Generate Coverage Data
+        working-directory: build
+        run: ctest --output-on-failure
+        
+      - name: 📊 Generate Coverage Report
+        working-directory: build
+        run: |
+          # FIX: Added '--rc geninfo_ignore_errors=mismatch' to ignore lcov parsing bugs
+          lcov --directory . --capture --output-file coverage.info --rc geninfo_ignore_errors=mismatch
           genhtml coverage.info --output-directory coverage
-      - uses: actions/upload-artifact@v4
+          
+      - name: 💾 Upload Coverage Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: Coverage-Report
-          path: build/coverage # Corrected path to upload from build dir
+          path: build/coverage
+          retention-days: 7
 
 # ================================================================
-# 4️⃣ Docs (Doxygen)
+# 3️⃣ Docs (Doxygen)
 # ================================================================
   docs:
     name: 📚 Build Documentation
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' # Only run on main branch
     steps:
-      - uses: actions/checkout@v4
-      - run: |
-          sudo apt-get install -y doxygen graphviz
-          # This configures and runs doxygen via CMake, which is cleaner
+      - name: 🧩 Checkout Source
+        uses: actions/checkout@v4
+        
+      - name: 🛠️ Install dependencies
+        run: sudo apt-get update -y && sudo apt-get install -y doxygen graphviz
+          
+      - name: ⚙️ Configure & Build Docs
+        run: |
           cmake -B build -S . -DENABLE_DOXYGEN=ON
           cmake --build build --target doc_doxygen
-      - uses: actions/upload-artifact@v4
+          
+      - name: 💾 Upload Docs Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: Docs
-          path: build/docs/html # Doxygen output is now in build/docs/html
+          name: Doxygen-Docs
+          path: build/docs/html
+          retention-days: 7
 
 # ================================================================
-# 5️⃣ Sanitizer Job (Ubuntu only)
+# 4️⃣ Sanitizer Job (Ubuntu only)
 # ================================================================
   sanitize:
     name: 🔬 Run Sanitizers
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 🧩 Checkout Source
+        uses: actions/checkout@v4
+        
       - name: 🛠️ Install dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y cmake g++ ninja-build
-          
-      # <--- OPTIMIZATION: Cache build dependencies (like Googletest) --->
-      - name: ⚡ Cache Dependencies
-        id: cache-deps
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.BUILD_DIR }}/_deps
-          key: deps-ubuntu-sanitize-${{ hashFiles('**/CMakeLists.txt') }}
-          
+        run: sudo apt-get update -y && sudo apt-get install -y cmake g++ ninja-build
+            
       - name: ⚙️ Configure Project (Debug + Sanitizers)
         run: |
-          cmake -B build -S . -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DENABLE_TESTS=ON \
+          # We use CMAKE_BUILD_TYPE=Debug for the best sanitizer output
+          cmake -B build -S . -G Ninja `
+            -DCMAKE_BUILD_TYPE=Debug `
+            -DENABLE_TESTS=ON `
             -DENABLE_SANITIZERS=ON
 
       - name: 🚀 Build Project
@@ -192,11 +197,11 @@ jobs:
         run: ctest --output-on-failure
 
 # ================================================================
-# 6️⃣ Create Release (On Tag Push)
+# 5️⃣ Create Release (On Tag Push)
 # ================================================================
   release:
     name: 📦 Create GitHub Release
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' # Only runs this job on tag pushes
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -206,12 +211,70 @@ jobs:
       - name: 📥 Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/
+          path: artifacts/ # Downloads all artifacts into a folder named 'artifacts'
           
       - name: 🏗️ Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
+          # This automatically uses the tag name as the release title
+          # and the git commit message as the description
           files: |
             artifacts/SmartCodeMentor-ubuntu-latest/quiz_app
             artifacts/SmartCodeMentor-windows-latest/quiz_app.exe
             artifacts/SmartCodeMentor-macos-latest/quiz_app
+
+# ================================================================
+# 6️⃣ Report Failure (On Job Fail)
+# ================================================================
+  report_failure:
+    name: 🚨 Report Failure
+    if: failure() && github.event_name == 'push' # Only create issues on push, not PRs
+    needs: [build, coverage, docs, sanitize] # Depends on all main jobs
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💬 Determine Failure and Assignee
+        id: failure_details
+        run: |
+          # --- This is where you implement your assignment logic ---
+          # Assigns to Vimal and your friend.
+          # !! PLEASE EDIT 'YOUR_FRIEND_USERNAME_HERE' !!
+          assignees="Vimal,YOUR_FRIEND_USERNAME_HERE"
+          title="Build Failure in ${{ github.workflow }} on ${{ github.ref }}"
+          body="A job failed in the workflow. Please investigate.\n"
+          
+          # Logic based on which job failed
+          if [[ "${{ needs.build.result }}" == "failure" ]]; then
+            title="[Build Failure] CI Error on ${{ github.ref }}"
+            body+="**Job:** `build` failed.\n"
+          elif [[ "${{ needs.coverage.result }}" == "failure" ]]; then
+            title="[Coverage Failure] CI Error on ${{ github.ref }}"
+            body+="**Job:** `coverage` failed.\n"
+          elif [[ "${{ needs.docs.result }}" == "failure" ]]; then
+            title="[Docs Failure] CI Error on ${{ github.ref }}"
+            body+="**Job:** `docs` failed.\n"
+          elif [[ "${{ needs.sanitize.result }}" == "failure" ]]; then
+            title="[Sanitizer Failure] CI Error on ${{ github.ref }}"
+            body+="**Job:** `sanitize` failed.\n"
+          fi
+          
+          body+="\n[View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          # This syntax sets outputs for the next step
+          echo "title=$(echo $title | head -c 256)" >> $GITHUB_OUTPUT
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$body" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "assignees=$assignees" >> $GITHUB_OUTPUT
+
+      - name: 🛎️ Create GitHub Issue
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          title: ${{ steps.failure_details.outputs.title }}
+          body: ${{ steps.failure_details.outputs.body }}
+          assignees: ${{ steps.failure_details.outputs.assignees }}
+          labels: |
+            bug
+            build-failure
+            automated-issue
