@@ -167,11 +167,19 @@ if(ENABLE_DOXYGEN)
     if(DOXYGEN_FOUND)
         message(STATUS "📚 Doxygen found, configuring documentation...")
         
+        # Define the output directory path
         set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html)
         
+        # ----------------------------------------------------------------
+        # ✅ REQUIRED FIX: 
+        # Explicitly create the output directory before Doxygen runs.
+        # This solves the "does not exist and cannot be created" error.
+        # ----------------------------------------------------------------
+        file(MAKE_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY})
+
         configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
                        ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-                       
+                        
         add_custom_target(doc_doxygen
             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
             COMMENT "📘 Generating API Documentation (output: ${DOXYGEN_OUTPUT_DIRECTORY})"
