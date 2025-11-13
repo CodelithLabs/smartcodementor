@@ -202,48 +202,36 @@ jobs:
     name: 📦 Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    # FIX: Removed job-level 'if'. Steps inside will now control execution.
     steps:
       - name: 🧩 Checkout code
-        # FIX: Added step-level 'if'
         if: github.ref_type == 'tag'
         uses: actions/checkout@v4
         with:
-          # Required for the version bumper to see commit history
           fetch-depth: 0 
 
-      # NEW STEP: Automatically determines the new version from commit messages
-      - name:  Bump version
-        # FIX: Added step-level 'if'
-        if: github.ref_type == 'tag'
-        id: bump_version
-        # FIX: Replaced non-existent action with a valid one
-        uses: anothrNick/git-bump-action@1.0.0
-        with:
-          set-output: true  # Make 'version' available to next steps
-          semver: true      # Use semantic versioning (e.g., 1.2.3)
-          push: false       # Don't push the tag (release action will do it)
-          
+      # ❌ REMOVED: "Bump version" step (Not needed because you are already on a tag)
+
       - name: 📥 Download all build artifacts
-        # FIX: Added step-level 'if'
         if: github.ref_type == 'tag'
         uses: actions/download-artifact@v4
         with:
-          path: artifacts/ # Downloads all artifacts into a folder named 'artifacts'
+          path: artifacts/ 
           
       - name: 🏗️ Create Release and Upload Assets
-        # FIX: Added step-level 'if'
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          # NEW: Use the auto-generated version from the step above
-          tag_name: ${{ steps.bump_version.outputs.version }}
-          # NEW: Automatically generate release notes
+          # ✅ FIXED: Use the actual tag name that triggered the workflow
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           generate_release_notes: true
           files: |
             artifacts/SmartCodeMentor-ubuntu-latest/quiz_app
             artifacts/SmartCodeMentor-windows-latest/quiz_app.exe
             artifacts/SmartCodeMentor-macos-latest/quiz_app
+            artifacts/Coverage-Report
+            artifacts/Doxygen-Docs
+
 
 # ================================================================
 # 6️⃣ Report Branch Failure (On Job Fail)
