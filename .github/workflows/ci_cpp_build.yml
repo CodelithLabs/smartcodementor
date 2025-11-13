@@ -236,9 +236,8 @@ jobs:
         id: failure_details
         run: |
           # --- This is where you implement your assignment logic ---
-          # Assigns to Vimal and your friend.
-          # !! PLEASE EDIT 'YOUR_FRIEND_USERNAME_HERE' !!
-          assignees="Vimal,YOUR_FRIEND_USERNAME_HERE"
+          # Assigns to Prasanta-ray and Donbili69.
+          assignees="Prasanta-ray,Donbili69"
           title="Build Failure in ${{ github.workflow }} on ${{ github.ref }}"
           body="A job failed in the workflow. Please investigate.\n"
           
