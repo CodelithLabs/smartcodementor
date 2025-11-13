@@ -1,12 +1,12 @@
 # ========================================================================
 # 🌟 SmartCodeMentor - Cross-Platform C++20 Build System
 # ------------------------------------------------------------------------
-# Author: Prasanta Ray & GPT-5
-# Version: 1.1.0 (Refactored for Library-First Design)
+# Author: Prasanta Ray & Teamcodelith
+# Version: 1.2.0 (Professional Refactor)
 # ========================================================================
 
 cmake_minimum_required(VERSION 3.20)
-project(SmartCodeMentor VERSION 1.1.0 LANGUAGES CXX)
+project(SmartCodeMentor VERSION 1.2.0 LANGUAGES CXX)
 
 # ------------------------------------------------------------------------
 # 🧩 Global Configurations
@@ -31,46 +31,40 @@ option(ENABLE_TESTS "Enable unit tests" ON)
 option(ENABLE_COVERAGE "Enable code coverage" OFF)
 option(ENABLE_SANITIZERS "Enable Address/UB Sanitizers" OFF)
 option(ENABLE_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
-option(ENABLE_STATIC_ANALYSIS "Enable static analysis tools" ON)
+option(ENABLE_STATIC_ANALYSIS "Enable static analysis (cppcheck, clang-tidy)" ON)
 option(ENABLE_DOXYGEN "Enable Doxygen documentation" ON)
 
 # ------------------------------------------------------------------------
-# 🧱 Core Library & Application (THE PRIMARY FIX)
+# 🧱 Core Library & Application (Professional Structure)
 # ------------------------------------------------------------------------
 message(STATUS "📚 Defining core library and application...")
 
-# 1. Find all source files in the 'src' directory
-file(GLOB_RECURSE ALL_SOURCE_FILES
-     "${SRC_DIR}/*.cpp"
-     "${SRC_DIR}/*.cc"
-     "${SRC_DIR}/*.cxx")
-
-# 2. Separate the main executable file (e.g., main.cpp) from the library files
-#    We assume your main function is in 'main.cpp' inside 'src/'.
-#    If it's named differently (e.g., quiz_app.cpp), change the name here.
-set(MAIN_APP_FILE "${SRC_DIR}/main.cpp")
-
-# 3. Create a list of all *other* source files for the library
-list(FILTER ALL_SOURCE_FILES EXCLUDE REGEX "${MAIN_APP_FILE}")
-set(LIB_SOURCE_FILES ${ALL_SOURCE_FILES})
-
-# 4. Create the CORE LIBRARY (this is the key fix)
-#    This library holds all your application logic.
-add_library(quiz_lib ${LIB_SOURCE_FILES})
-#    We use PUBLIC includes so any target linking quiz_lib also gets the headers
+# This is the robust, professional way. No more fragile GLOB.
+add_library(quiz_lib
+    src/Question.cpp
+    src/Quiz.cpp
+    src/QuizAttempt.cpp
+)
+# We use PUBLIC includes so any target linking quiz_lib also gets the headers
 target_include_directories(quiz_lib PUBLIC ${INCLUDE_DIR})
 
-# 5. Create the main EXECUTABLE
-add_executable(quiz_app ${MAIN_APP_FILE})
-#    Link the app against the core logic library
+# Create the main EXECUTABLE
+add_executable(quiz_app src/main.cpp)
+# Link the app against the core logic library
 target_link_libraries(quiz_app PRIVATE quiz_lib)
 
 # ------------------------------------------------------------------------
 # 🧰 Compiler Configuration Function (OPTIMIZATION)
 # ------------------------------------------------------------------------
 # This function applies all our settings to ANY target (lib, app, or test)
-# This is far more robust and avoids repeating code.
 # ------------------------------------------------------------------------
+
+# Find static analysis tools
+if(ENABLE_STATIC_ANALYSIS)
+    find_program(CPPCHECK_EXECUTABLE cppcheck)
+    find_program(CLANG_TIDY_EXECUTABLE clang-tidy)
+endif()
+
 function(apply_common_compile_options target)
     message(STATUS "Applying common compile options to ${target}")
 
@@ -91,7 +85,8 @@ function(apply_common_compile_options target)
 
     # Build-type specific optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        target_compile_options(${target} PRIVATE -O3 -march=native)
+        # Removed -march=native. It's not portable for CI builds.
+        target_compile_options(${target} PRIVATE -O3)
     else()
         # Default to Debug-friendly flags
         target_compile_options(${target} PRIVATE -O0 -g3 -fno-omit-frame-pointer)
@@ -109,6 +104,21 @@ function(apply_common_compile_options target)
         message(STATUS "📈 Code Coverage Enabled for ${target}")
         target_compile_options(${target} PRIVATE --coverage -O0 -g)
         target_link_libraries(${target} PRIVATE gcov)
+    endif()
+
+    # Integrate static analysis directly into the build
+    if(ENABLE_STATIC_ANALYSIS)
+        if(CPPCHECK_EXECUTABLE)
+            message(STATUS "🔍 Enabling cppcheck for ${target}")
+            target_set_property(${target} PROPERTY CMAKE_CXX_CPPCHECK
+                "${CPPCHECK_EXECUTABLE}" --enable=all --inconclusive --std=c++20)
+        endif()
+        if(CLANG_TIDY_EXECUTABLE)
+            message(STATUS "🔬 Enabling clang-tidy for ${target}")
+            # You can add a .clang-tidy file to your root to configure checks
+            target_set_property(${target} PROPERTY CMAKE_CXX_CLANG_TIDY
+                "${CLANG_TIDY_EXECUTABLE}")
+        endif()
     endif()
 endfunction()
 
@@ -130,18 +140,17 @@ if(ENABLE_TESTS)
         GIT_REPOSITORY https://github.com/google/googletest.git
         GIT_TAG v1.13.0
     )
-    # This prevents gtest from being built/installed at the top level
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
 
+    # Find all test files in the test directory
     file(GLOB_RECURSE TEST_SOURCES "${TEST_DIR}/*.cpp")
     add_executable(run_tests ${TEST_SOURCES})
 
     # Apply our common settings to the test executable as well
     apply_common_compile_options(run_tests)
 
-    # <--- THE FIX --->
-    # Link tests against the LIBRARY (quiz_lib), not the executable (quiz_app)
+    # Link tests against the LIBRARY (quiz_lib)
     target_link_libraries(run_tests PRIVATE gtest_main quiz_lib)
 
     add_test(NAME SmartCodeMentor_Tests COMMAND run_tests)
@@ -154,11 +163,15 @@ if(ENABLE_DOXYGEN)
     find_package(Doxygen)
     if(DOXYGEN_FOUND)
         message(STATUS "📚 Doxygen found, configuring documentation...")
+        
+        set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html)
+        
         configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
                        ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+                       
         add_custom_target(doc_doxygen
             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-            COMMENT "📘 Generating API Documentation with Doxygen"
+            COMMENT "📘 Generating API Documentation (output: ${DOXYGEN_OUTPUT_DIRECTORY})"
         )
     else()
         message(WARNING "Doxygen not found. Skipping documentation build.")
@@ -166,29 +179,14 @@ if(ENABLE_DOXYGEN)
 endif()
 
 # ------------------------------------------------------------------------
-# 🔍 Static Analysis Integration
-# ------------------------------------------------------------------------
-if(ENABLE_STATIC_ANALYSIS)
-    find_program(CPPCHECK cppcheck)
-    if(CPPCHECK)
-        message(STATUS "🔍 Cppcheck found, adding static_analysis target...")
-        add_custom_target(static_analysis
-            COMMAND ${CPPCHECK} --enable=all --inconclusive --std=c++20 ${SRC_DIR}
-            COMMENT "🔍 Running cppcheck"
-        )
-    else()
-        message(WARNING "cppcheck not found. Skipping static_analysis target.")
-    endif()
-endif()
-
-# ------------------------------------------------------------------------
 # 🧰 Post-Build Summary
 # ------------------------------------------------------------------------
 add_custom_command(
-    TARGET quiz_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "✅ Build complete for SmartCodeMentor"
-    COMMAND ${CMAKE_COMMAND} -E echo "Output: $<TARGET_FILE:quiz_app>"
-    COMMAND ${CMAKE_COMMAND} -E echo "Run tests (from build dir): ctest"
+    TARGET quiz_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "✅ Build complete for SmartCodeMentor"
+    COMMAND ${CMAKE_COMMAND} -E echo "Output: $<TARGET_FILE:quiz_app>"
+    # FIX: Removed parentheses from the string to avoid shell syntax errors
+    COMMAND ${CMAKE_COMMAND} -E echo "Run tests from build dir: ctest"
 )
 
 # ------------------------------------------------------------------------
