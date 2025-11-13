@@ -111,8 +111,9 @@ function(apply_common_compile_options target)
         if(CPPCHECK_EXECUTABLE)
             message(STATUS "🔍 Enabling cppcheck for ${target}")
             # FIX 1: Corrected command from 'target_set_property' to 'set_target_properties'
+            # FIX 3: Wrapped all cppcheck args in ONE string.
             set_target_properties(${target} PROPERTIES CMAKE_CXX_CPPCHECK
-                "${CPPCHECK_EXECUTABLE}" --enable=all --inconclusive --std=c++20)
+                "${CPPCHECK_EXECUTABLE} --enable=all --inconclusive --std=c++20")
         endif()
         if(CLANG_TIDY_EXECUTABLE)
             message(STATUS "🔬 Enabling clang-tidy for ${target}")
