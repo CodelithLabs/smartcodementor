@@ -110,13 +110,15 @@ function(apply_common_compile_options target)
     if(ENABLE_STATIC_ANALYSIS)
         if(CPPCHECK_EXECUTABLE)
             message(STATUS "🔍 Enabling cppcheck for ${target}")
-            target_set_property(${target} PROPERTY CMAKE_CXX_CPPCHECK
+            # FIX 1: Corrected command from 'target_set_property' to 'set_target_properties'
+            set_target_properties(${target} PROPERTIES CMAKE_CXX_CPPCHECK
                 "${CPPCHECK_EXECUTABLE}" --enable=all --inconclusive --std=c++20)
         endif()
         if(CLANG_TIDY_EXECUTABLE)
             message(STATUS "🔬 Enabling clang-tidy for ${target}")
             # You can add a .clang-tidy file to your root to configure checks
-            target_set_property(${target} PROPERTY CMAKE_CXX_CLANG_TIDY
+            # FIX 1: Corrected command from 'target_set_property' to 'set_target_properties'
+            set_target_properties(${target} PROPERTIES CMAKE_CXX_CLANG_TIDY
                 "${CLANG_TIDY_EXECUTABLE}")
         endif()
     endif()
@@ -181,12 +183,12 @@ endif()
 # ------------------------------------------------------------------------
 # 🧰 Post-Build Summary
 # ------------------------------------------------------------------------
+# FIX 2: Replaced all non-standard whitespace with regular spaces
 add_custom_command(
-    TARGET quiz_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "✅ Build complete for SmartCodeMentor"
-    COMMAND ${CMAKE_COMMAND} -E echo "Output: $<TARGET_FILE:quiz_app>"
-    # FIX: Removed parentheses from the string to avoid shell syntax errors
-    COMMAND ${CMAKE_COMMAND} -E echo "Run tests from build dir: ctest"
+    TARGET quiz_app POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "✅ Build complete for SmartCodeMentor"
+    COMMAND ${CMAKE_COMMAND} -E echo "Output: $<TARGET_FILE:quiz_app>"
+    COMMAND ${CMAKE_COMMAND} -E echo "Run tests from build dir: ctest"
 )
 
 # ------------------------------------------------------------------------
