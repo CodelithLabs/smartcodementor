@@ -2,7 +2,7 @@
 # 🌟 SmartCodeMentor - Cross-Platform C++20 Build System
 # ------------------------------------------------------------------------
 # Author: Prasanta Ray & Teamcodelith
-# Version: 1.2.0 (Professional Refactor)
+# Version: 1.2.1 (With Static Link Fix)
 # ========================================================================
 
 cmake_minimum_required(VERSION 3.20)
@@ -85,7 +85,6 @@ function(apply_common_compile_options target)
 
     # Build-type specific optimizations
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        # Removed -march=native. It's not portable for CI builds.
         target_compile_options(${target} PRIVATE -O3)
     else()
         # Default to Debug-friendly flags
@@ -106,19 +105,25 @@ function(apply_common_compile_options target)
         target_link_libraries(${target} PRIVATE gcov)
     endif()
 
+    # ---
+    # ✅ FIX FOR Windows .DLL Error:
+    # If we are building with MinGW on Windows, statically link the
+    # C++ standard libraries so the .exe is portable.
+    # ---
+    if(MINGW)
+        message(STATUS "Applying MinGW static linking for ${target}")
+        target_link_options(${target} PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+
     # Integrate static analysis directly into the build
     if(ENABLE_STATIC_ANALYSIS)
         if(CPPCHECK_EXECUTABLE)
             message(STATUS "🔍 Enabling cppcheck for ${target}")
-            # FIX 1: Corrected command from 'target_set_property' to 'set_target_properties'
-            # FIX 3: Wrapped all cppcheck args in ONE string.
             set_target_properties(${target} PROPERTIES CMAKE_CXX_CPPCHECK
                 "${CPPCHECK_EXECUTABLE} --enable=all --inconclusive --std=c++20")
         endif()
         if(CLANG_TIDY_EXECUTABLE)
             message(STATUS "🔬 Enabling clang-tidy for ${target}")
-            # You can add a .clang-tidy file to your root to configure checks
-            # FIX 1: Corrected command from 'target_set_property' to 'set_target_properties'
             set_target_properties(${target} PROPERTIES CMAKE_CXX_CLANG_TIDY
                 "${CLANG_TIDY_EXECUTABLE}")
         endif()
@@ -169,9 +174,12 @@ if(ENABLE_DOXYGEN)
         
         set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html)
         
+        # FIX: Ensure the output directory exists before Doxygen runs
+        file(MAKE_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY})
+        
         configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
                        ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-                       
+                        
         add_custom_target(doc_doxygen
             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
             COMMENT "📘 Generating API Documentation (output: ${DOXYGEN_OUTPUT_DIRECTORY})"
@@ -184,7 +192,6 @@ endif()
 # ------------------------------------------------------------------------
 # 🧰 Post-Build Summary
 # ------------------------------------------------------------------------
-# FIX 2: Replaced all non-standard whitespace with regular spaces
 add_custom_command(
     TARGET quiz_app POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "✅ Build complete for SmartCodeMentor"
