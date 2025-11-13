@@ -217,7 +217,8 @@ jobs:
         # FIX: Added step-level 'if'
         if: github.ref_type == 'tag'
         id: bump_version
-        uses: madv/git-bump-action@v1
+        # FIX: Replaced non-existent action with a valid one
+        uses: anothrNick/git-bump-action@1.0.0
         with:
           set-output: true  # Make 'version' available to next steps
           semver: true      # Use semantic versioning (e.g., 1.2.3)
