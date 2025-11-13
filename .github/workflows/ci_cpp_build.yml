@@ -1,12 +1,13 @@
 # ================================================================
-# 🚀 SmartCodeMentor CI/CD (Cross-Platform, v1.2)
+# 🚀 SmartCodeMentor CI/CD (Cross-Platform, v1.3 - Auto-Release)
 # ================================================================
 # This workflow is professionally structured to:
 # 1. Run a build & test matrix on Ubuntu, Windows, and macOS.
 # 2. Run code coverage and sanitizer checks on Ubuntu.
-# 3. Build Doxygen docs.
-# 4. Create a GitHub Release (when you push a tag like 'v1.0.0').
-# 5. Automatically create a GitHub Issue if any job fails on 'main' or 'dev'.
+# 3. Build Doxygen docs (now shows 'Success' on PRs, not 'Skipped').
+# 4. Create a GitHub Release AUTOMATICALLY with version bumps
+#    and generated release notes.
+# 5. Automatically create a GitHub Issue if any job fails.
 # ================================================================
 
 name: SmartCodeMentor CI/CD
@@ -26,8 +27,8 @@ env:
   EXECUTABLE_NAME: quiz_app
 
 permissions:
-  contents: write
-  issues: write # <-- ADDED: Allow creating issues
+  contents: write  # Needed for release creation
+  issues: write    # Needed for failure reporting
 
 # ================================================================
 # 1️⃣ Cross-Platform Build & Test Matrix
@@ -140,20 +141,29 @@ jobs:
     name: 📚 Build Documentation
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' # Only run on main branch
+    # FIX: Removed job-level 'if'. The job will now run, succeed,
+    # and show a green check, but the steps inside will be skipped.
     steps:
       - name: 🧩 Checkout Source
+        # FIX: Added step-level 'if'
+        if: github.ref == 'refs/heads/main'
         uses: actions/checkout@v4
         
       - name: 🛠️ Install dependencies
+        # FIX: Added step-level 'if'
+        if: github.ref == 'refs/heads/main'
         run: sudo apt-get update -y && sudo apt-get install -y doxygen graphviz
           
       - name: ⚙️ Configure & Build Docs
+        # FIX: Added step-level 'if'
+        if: github.ref == 'refs/heads/main'
         run: |
           cmake -B build -S . -DENABLE_DOXYGEN=ON
           cmake --build build --target doc_doxygen
           
       - name: 💾 Upload Docs Artifact
+        # FIX: Added step-level 'if'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: Doxygen-Docs
@@ -190,69 +200,83 @@ jobs:
 # ================================================================
   release:
     name: 📦 Create GitHub Release
-    if: github.ref_type == 'tag' # Only runs this job on tag pushes
     needs: build
     runs-on: ubuntu-latest
+    # FIX: Removed job-level 'if'. Steps inside will now control execution.
     steps:
       - name: 🧩 Checkout code
+        # FIX: Added step-level 'if'
+        if: github.ref_type == 'tag'
         uses: actions/checkout@v4
+        with:
+          # Required for the version bumper to see commit history
+          fetch-depth: 0 
 
+      # NEW STEP: Automatically determines the new version from commit messages
+      - name:  Bump version
+        # FIX: Added step-level 'if'
+        if: github.ref_type == 'tag'
+        id: bump_version
+        uses: madv/git-bump-action@v1
+        with:
+          set-output: true  # Make 'version' available to next steps
+          semver: true      # Use semantic versioning (e.g., 1.2.3)
+          push: false       # Don't push the tag (release action will do it)
+          
       - name: 📥 Download all build artifacts
+        # FIX: Added step-level 'if'
+        if: github.ref_type == 'tag'
         uses: actions/download-artifact@v4
         with:
           path: artifacts/ # Downloads all artifacts into a folder named 'artifacts'
           
       - name: 🏗️ Create Release and Upload Assets
+        # FIX: Added step-level 'if'
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          # This automatically uses the tag name as the release title
-          # and the git commit message as the description
+          # NEW: Use the auto-generated version from the step above
+          tag_name: ${{ steps.bump_version.outputs.version }}
+          # NEW: Automatically generate release notes
+          generate_release_notes: true
           files: |
             artifacts/SmartCodeMentor-ubuntu-latest/quiz_app
             artifacts/SmartCodeMentor-windows-latest/quiz_app.exe
             artifacts/SmartCodeMentor-macos-latest/quiz_app
 
 # ================================================================
-# 6️⃣ Report Failure (On Job Fail)
+# 6️⃣ Report Branch Failure (On Job Fail)
 # ================================================================
-  report_failure:
-    name: 🚨 Report Failure
-    if: failure() && github.event_name == 'push' # Only create issues on push, not PRs
-    # FIX: Added 'release' to the list of jobs to check
-    needs: [build, coverage, docs, sanitize, release] # Depends on all main jobs
+  report_branch_failure:
+    name: 🚨 Report Branch Failure
+    # FIX: This 'if' is now very specific. It only runs on a FAILED PUSH to a BRANCH.
+    if: failure() && github.event_name == 'push' && github.ref_type == 'branch'
+    needs: [build, coverage, docs, sanitize] # Depends on all main branch jobs
     runs-on: ubuntu-latest
     steps:
       - name: 💬 Determine Failure and Assignee
         id: failure_details
         run: |
-          # --- This is where you implement your assignment logic ---
-          # Assigns to Prasanta-ray and Donbili69.
           assignees="Prasanta-ray,Donbili69"
-          title="Build Failure in ${{ github.workflow }} on ${{ github.ref }}"
+          title="Build Failure in ${{ github.workflow }} on branch ${{ github.ref }}"
           body="A job failed in the workflow. Please investigate.\n"
           
-          # Logic based on which job failed
           if [[ "${{ needs.build.result }}" == "failure" ]]; then
-            title="[Build Failure] CI Error on ${{ github.ref }}"
+            title="[Build Failure] CI Error on branch ${{ github.ref }}"
             body+="**Job:** `build` failed.\n"
           elif [[ "${{ needs.coverage.result }}" == "failure" ]]; then
-            title="[Coverage Failure] CI Error on ${{ github.ref }}"
+            title="[Coverage Failure] CI Error on branch ${{ github.ref }}"
             body+="**Job:** `coverage` failed.\n"
           elif [[ "${{ needs.docs.result }}" == "failure" ]]; then
-            title="[Docs Failure] CI Error on ${{ github.ref }}"
+            title="[Docs Failure] CI Error on branch ${{ github.ref }}"
             body+="**Job:** `docs` failed.\n"
           elif [[ "${{ needs.sanitize.result }}" == "failure" ]]; then
-            title="[Sanitizer Failure] CI Error on ${{ github.ref }}"
+            title="[Sanitizer Failure] CI Error on branch ${{ github.ref }}"
             body+="**Job:** `sanitize` failed.\n"
-          # FIX: Added a check for the release job
-          elif [[ "${{ needs.release.result }}" == "failure" ]]; then
-            title="[Release Failure] CI Error on ${{ github.ref }}"
-            body+="**Job:** `release` failed.\n"
           fi
           
           body+="\n[View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           
-          # This syntax sets outputs for the next step
           echo "title=$(echo $title | head -c 256)" >> $GITHUB_OUTPUT
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo -e "$body" >> $GITHUB_OUTPUT
@@ -270,4 +294,41 @@ jobs:
           labels: |
             bug
             build-failure
+            automated-issue
+
+# ================================================================
+# 7️⃣ Report Release Failure (On Tag Fail)
+# ================================================================
+  report_release_failure:
+    name: 🚨 Report Release Failure
+    # FIX: This job only runs on a FAILED PUSH that is a TAG
+    if: failure() && github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [release] # Only depends on the release job
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💬 Determine Failure and Assignee
+        id: failure_details
+        run: |
+          assignees="Prasanta-ray,Donbili69"
+          title="[Release Failure] CI Error on tag ${{ github.ref }}"
+          body="The automated release job failed. Please investigate.\n"
+          body+="\n[View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          echo "title=$(echo $title | head -c 256)" >> $GITHUB_OUTPUT
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$body" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "assignees=$assignees" >> $GITHUB_OUTPUT
+
+      - name: 🛎️ Create GitHub Issue
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          title: ${{ steps.failure_details.outputs.title }}
+          body: ${{ steps.failure_details.outputs.body }}
+          assignees: ${{ steps.failure_details.outputs.assignees }}
+          labels: |
+            bug
+            release-failure
             automated-issue
